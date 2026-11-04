@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "Multiplayer Truth or Dare game room state for two siblings",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^[A-Z0-9]{5}$",
+          "description": "5-character alphanumeric room code"
+        },
+        "hostUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authenticated UID of Player 1 (Host)"
+        },
+        "guestUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authenticated UID of Player 2 (Guest)"
+        },
+        "player1_connected": {
+          "type": "boolean",
+          "description": "Whether Player 1 (Host) is connected"
+        },
+        "player2_connected": {
+          "type": "boolean",
+          "description": "Whether Player 2 (Guest) is connected"
+        },
+        "current_turn": {
+          "type": "string",
+          "enum": ["player1", "player2"],
+          "maxLength": 10,
+          "description": "Whose turn it currently is"
+        },
+        "game_status": {
+          "type": "string",
+          "enum": ["waiting", "playing", "completed"],
+          "maxLength": 16,
+          "description": "Current phase of the game"
+        },
+        "question_type": {
+          "type": "string",
+          "enum": ["none", "truth", "dare"],
+          "maxLength": 10,
+          "description": "Active prompt category or none"
+        },
+        "question_text": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300,
+          "description": "Active Truth or Dare prompt text"
+        },
+        "round_count": {
+          "type": "integer",
+          "description": "Total number of rounds played"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the room was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the room was last updated"
+        }
+      },
+      "required": [
+        "roomCode",
+        "hostUid",
+        "player1_connected",
+        "player2_connected",
+        "current_turn",
+        "game_status",
+        "question_type",
+        "question_text",
+        "round_count",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/Room"
+      },
+      "description": "Stores real-time game room state keyed by 5-character room code"
+    }
+  }
+}

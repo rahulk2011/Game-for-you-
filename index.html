@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>Sibling Showdown: Real-Time Truth or Dare</title>
+    <meta
+      name="description"
+      content="A real-time multiplayer Truth or Dare mobile web game designed for siblings, powered by Firebase Realtime Database with room-code invites and instant turn synchronization."
+    />
+    <meta property="og:title" content="Sibling Showdown: Real-Time Truth or Dare" />
+    <meta
+      property="og:description"
+      content="A real-time multiplayer Truth or Dare mobile web game designed for siblings, powered by Firebase Realtime Database with room-code invites and instant turn synchronization."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts: Outfit (Display), Plus Jakarta Sans (Body), JetBrains Mono (Tabular Code/Metrics) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <!-- Top Bar Contract: 3 Zones (Wordmark — Nav Links — 1 Primary Action) -->
+    <header class="top-bar">
+      <div class="top-bar-inner">
+        <a href="#arena" class="brand-wordmark" id="brand-home-link">Sibling Showdown</a>
+
+        <nav class="top-nav" aria-label="Primary Navigation">
+          <a href="#arena" class="nav-link active">Arena</a>
+          <a href="#deck" class="nav-link">Prompt Deck</a>
+          <a href="#how-to-play" class="nav-link">How to Play</a>
+          <a href="#source-files" class="nav-link">Source Files</a>
+        </nav>
+
+        <button type="button" class="top-action-btn" id="btn-header-new-room">
+          New Room
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Responsive Mobile-First Shell -->
+    <main class="app-shell">
+      <div class="workspace-grid" id="arena">
+        <!-- LEFT COLUMN: Primary Multiplayer Game Stage -->
+        <section class="glass-card" aria-live="polite">
+          <!-- Unboxed Metadata Line (Zero-Pill Discipline) -->
+          <div class="meta-line">
+            <span id="meta-role-label">Multiplayer Ready</span>
+            <span class="meta-sep" aria-hidden="true">·</span>
+            <span id="meta-room-label" class="tabular-nums">No Active Room</span>
+            <span class="meta-sep" aria-hidden="true">·</span>
+            <span id="meta-round-label" class="tabular-nums">Round 0</span>
+          </div>
+
+          <!-- Error Notification Banner (Hidden by default) -->
+          <div id="error-banner" class="error-banner hidden" role="alert">
+            <span id="error-banner-text">Invalid room code. Please check the 5-character code and try again.</span>
+            <button type="button" class="small-action-btn" id="btn-dismiss-error">Dismiss</button>
+          </div>
+
+          <!-- PHASE 1: HOME / CREATE OR JOIN VIEW -->
+          <div id="setup-view">
+            <h1 class="hero-title">Real-Time Sibling Truth or Dare</h1>
+            <p class="hero-subtitle">
+              Create a private 5-character room on your phone, send the invite link to your brother or sister, and play with instant turn synchronization.
+            </p>
+
+            <div class="action-stack">
+              <button type="button" class="primary-cta-btn" id="btn-create-game">
+                Create Game
+              </button>
+
+              <div class="divider-row">or join sibling's room</div>
+
+              <form class="join-form" id="join-room-form" novalidate>
+                <input
+                  type="text"
+                  id="input-room-code"
+                  class="room-code-input"
+                  placeholder="Enter 5-digit code (e.g. K9X4M)"
+                  maxlength="5"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  spellcheck="false"
+                  aria-label="5-character room code"
+                />
+                <button type="submit" class="secondary-btn" id="btn-join-game">
+                  Join Room
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- PHASE 2: LOBBY VIEW (WAITING FOR SIBLING TO JOIN) -->
+          <div id="lobby-view" class="hidden">
+            <h2 class="hero-title">Invite Your Sibling</h2>
+            <p class="hero-subtitle">
+              Share this room link or 5-character code with your sibling. The game starts automatically the moment they open the link.
+            </p>
+
+            <div class="room-code-showcase">
+              <div class="room-code-label">Room Code</div>
+              <div class="room-code-digits tabular-nums" id="lobby-room-code">-----</div>
+              <div class="invite-url-preview" id="lobby-invite-url">https://...</div>
+            </div>
+
+            <button type="button" class="copy-invite-btn" id="btn-copy-invite">
+              Copy Invite Link
+            </button>
+
+            <div class="lobby-waiting-box">
+              <p class="lobby-status-text" id="lobby-waiting-text">
+                Waiting for your sibling to join...
+              </p>
+              <div class="lobby-helper-actions">
+                <button type="button" class="small-action-btn" id="btn-open-guest-tab">
+                  Open Player 2 in New Tab
+                </button>
+                <button type="button" class="small-action-btn" id="btn-simulate-sibling">
+                  Connect Sibling Instantly (Test Mode)
+                </button>
+                <button type="button" class="small-action-btn" id="btn-leave-lobby">
+                  Cancel Room
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- PHASE 3: ACTIVE GAMEPLAY VIEW -->
+          <div id="game-view" class="hidden">
+            <!-- Turn System Banner (Glows when it is the local user's turn) -->
+            <div class="turn-banner is-my-turn" id="turn-banner">
+              <div>
+                <h2 class="turn-headline" id="turn-status-heading">Your Turn!</h2>
+                <p class="turn-subtext" id="turn-status-subtext">
+                  Pick Truth or Dare below to reveal a challenge on both screens.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="small-action-btn hidden"
+                id="btn-switch-perspective"
+                title="Switch active player perspective when testing on a single device"
+              >
+                Switch to Player 2
+              </button>
+            </div>
+
+            <!-- Truth & Dare Selection Buttons (Disabled when not local player's turn) -->
+            <div class="choice-grid">
+              <button type="button" class="choice-btn choice-btn-truth" id="btn-truth">
+                <span class="choice-btn-title">Truth</span>
+                <span class="choice-btn-caption">Honest confession</span>
+              </button>
+
+              <button type="button" class="choice-btn choice-btn-dare" id="btn-dare">
+                <span class="choice-btn-title">Dare</span>
+                <span class="choice-btn-caption">Action challenge</span>
+              </button>
+            </div>
+
+            <!-- Revealed Question Stage -->
+            <div class="question-stage" id="question-stage">
+              <div id="question-empty-state" class="question-empty-placeholder">
+                No prompt revealed yet. Waiting for a Truth or Dare selection...
+              </div>
+
+              <div id="question-active-state" class="hidden">
+                <div class="question-kicker" id="question-type-label">TRUTH CHALLENGE</div>
+                <p class="question-body-text" id="question-text-display">
+                  What is the most annoying habit I have?
+                </p>
+              </div>
+
+              <!-- Next Turn Button (Appears after a Truth/Dare is revealed) -->
+              <button type="button" class="next-turn-btn hidden" id="btn-next-turn">
+                Next Turn
+              </button>
+            </div>
+
+            <!-- Room Controls Footer -->
+            <div class="lobby-helper-actions" style="margin-top: 1.25rem;">
+              <button type="button" class="small-action-btn" id="btn-copy-in-game">
+                Copy Invite Link
+              </button>
+              <button type="button" class="small-action-btn" id="btn-sound-toggle">
+                Sound Effects: On
+              </button>
+              <button type="button" class="small-action-btn" id="btn-leave-game">
+                Leave Room
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Live Room Status, Sibling Prompt Deck & How to Play -->
+        <aside class="side-stack">
+          <!-- Real-Time Room State & Sibling Roster -->
+          <section class="glass-card">
+            <div class="meta-line">
+              <span>Firebase State Node</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span id="sync-engine-label" class="meta-highlight">Realtime Sync Ready</span>
+            </div>
+            <h2 class="section-heading">Connected Players</h2>
+
+            <div class="player-roster">
+              <div class="player-row" id="roster-player1-row">
+                <div class="player-identity">
+                  <span class="player-title" id="roster-player1-title">Player 1 (Host)</span>
+                  <span class="player-role-sub">Room Creator</span>
+                </div>
+                <span class="player-state-text tabular-nums" id="roster-player1-status">Offline</span>
+              </div>
+
+              <div class="player-row" id="roster-player2-row">
+                <div class="player-identity">
+                  <span class="player-title" id="roster-player2-title">Player 2 (Sibling)</span>
+                  <span class="player-role-sub">Invited Guest</span>
+                </div>
+                <span class="player-state-text tabular-nums" id="roster-player2-status">Offline</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Sibling-Friendly Prompt Deck Browser (30 Truths + 30 Dares) -->
+          <section class="glass-card" id="deck">
+            <div class="meta-line">
+              <span>Sibling-Friendly Content</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span class="tabular-nums" id="deck-total-count">60 Prompts Loaded</span>
+            </div>
+            <h2 class="section-heading">Sibling Prompt Deck</h2>
+
+            <div class="segmented-bar" role="tablist" aria-label="Prompt category filter">
+              <button
+                type="button"
+                class="segment-btn active"
+                id="tab-deck-truths"
+                role="tab"
+                aria-selected="true"
+              >
+                Truths (<span id="count-truths" class="tabular-nums">30</span>)
+              </button>
+              <button
+                type="button"
+                class="segment-btn"
+                id="tab-deck-dares"
+                role="tab"
+                aria-selected="false"
+              >
+                Dares (<span id="count-dares" class="tabular-nums">30</span>)
+              </button>
+            </div>
+
+            <div class="prompt-list-container" id="prompt-deck-list"></div>
+          </section>
+
+          <!-- How to Play Card -->
+          <section class="glass-card" id="how-to-play">
+            <div class="meta-line">
+              <span>Quick Guide</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span>2 Players</span>
+            </div>
+            <h2 class="section-heading">How It Works</h2>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+              01. Click <strong>Create Game</strong> on Device 1 to generate a 5-character room code under <code>rooms/&lt;room_code&gt;</code>.
+            </p>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+              02. Tap <strong>Copy Invite Link</strong> and send it to your sibling. Opening <code>?room=ABCDE</code> connects Player 2 automatically.
+            </p>
+            <p style="font-size: 0.875rem; color: var(--text-secondary);">
+              03. Take turns choosing <strong>Truth</strong> or <strong>Dare</strong>. Both screens update in under 100ms via Firebase <code>onValue</code>.
+            </p>
+          </section>
+        </aside>
+      </div>
+
+      <!-- STANDALONE 3-FILE CODE INSPECTOR (index.html, style.css, script.js) -->
+      <section class="glass-card source-viewer-section" id="source-files">
+        <div class="code-header-bar">
+          <div>
+            <div class="meta-line">
+              <span>Production Deliverable</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span>HTML5 · CSS3 · Vanilla ES6+ JS</span>
+            </div>
+            <h2 class="section-heading" style="margin-bottom: 0;">Complete Three-File Source Code</h2>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+            <div class="segmented-bar" style="margin: 0;">
+              <button type="button" class="segment-btn active" data-source-file="index.html">
+                index.html
+              </button>
+              <button type="button" class="segment-btn" data-source-file="style.css">
+                style.css
+              </button>
+              <button type="button" class="segment-btn" data-source-file="script.js">
+                script.js
+              </button>
+            </div>
+            <button type="button" class="secondary-btn" id="btn-copy-source-file" style="min-height: 40px; padding: 0.45rem 0.95rem; font-size: 0.8125rem;">
+              Copy File Code
+            </button>
+          </div>
+        </div>
+
+        <div class="code-pre-wrapper">
+          <pre class="code-pre"><code id="source-code-display">Loading file contents...</code></pre>
+        </div>
+      </section>
+    </main>
+
+    <!-- Toast Notification ("Copied!") -->
+    <div id="toast" class="toast-notification" role="status" aria-live="polite">
+      Copied!
+    </div>
+
+    <footer class="site-footer">
+      Sibling Showdown · Built with Vanilla HTML5, CSS3, and Firebase Realtime Database
+    </footer>
+
+    <!-- Main Application Logic (Vanilla ES6+ JavaScript) -->
+    <script type="module" src="/script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "Sibling Showdown: Real-Time Truth or Dare",
+  "description": "A real-time multiplayer Truth or Dare mobile web game designed for siblings, powered by Firebase Realtime Database with room-code invites and instant turn synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

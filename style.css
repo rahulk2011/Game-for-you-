@@ -1,0 +1,953 @@
+/* ==========================================================================
+   SIBLING SHOWDOWN — REAL-TIME TRUTH OR DARE
+   Strict Premium Dark Mode Stylesheet (CSS3, Mobile-First, Responsive)
+   ========================================================================== */
+
+:root {
+  /* Core 60% Dominant Neutral Canvas (Deep Midnight Blues & Obsidian Blacks) */
+  --bg-Abyss: #060913;
+  --bg-midnight: #0b1120;
+  --bg-elevated: #111a2e;
+
+  /* 30% Structural Surfaces & Glassmorphism */
+  --surface-card: rgba(17, 26, 46, 0.78);
+  --surface-card-solid: #131d33;
+  --surface-interactive: rgba(30, 41, 69, 0.65);
+  --surface-input: rgba(10, 15, 29, 0.85);
+  --border-hairline: rgba(148, 163, 184, 0.14);
+  --border-highlight: rgba(148, 163, 184, 0.26);
+
+  /* Typography Hierarchy */
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  /* 10% High-Intent Accent Budget */
+  --accent-primary: #38bdf8;
+  --accent-primary-hover: #0ea5e9;
+  --accent-truth: #38bdf8;
+  --accent-truth-deep: #0284c7;
+  --accent-truth-glow: rgba(56, 189, 248, 0.24);
+
+  --accent-dare: #f43f5e;
+  --accent-dare-deep: #e11d48;
+  --accent-dare-glow: rgba(244, 63, 94, 0.24);
+
+  --accent-turn-active: #6366f1;
+  --accent-turn-glow: rgba(99, 102, 241, 0.38);
+
+  --danger-color: #fb7185;
+  --success-color: #34d399;
+  --warning-color: #fbbf24;
+
+  /* Spatial & Radius Tokens */
+  --radius-card: 12px;
+  --radius-inner: 8px;
+  --transition-smooth: 0.3s ease-in-out;
+  --transition-fast: 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Font Stacks */
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ==========================================================================
+   1. RESET & BASE CANVAS
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--bg-Abyss);
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(99, 102, 241, 0.09) 0%, transparent 50%),
+    linear-gradient(180deg, var(--bg-Abyss) 0%, var(--bg-midnight) 100%);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ==========================================================================
+   2. TOP BAR CONTRACT (1-Row, 3-Zone Header)
+   ========================================================================== */
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 60px;
+  width: 100%;
+  background: rgba(6, 9, 19, 0.86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.top-bar-inner {
+  max-width: 1140px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.brand-wordmark {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.brand-wordmark:hover {
+  opacity: 0.88;
+}
+
+.top-nav {
+  display: none;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+@media (min-width: 768px) {
+  .top-nav {
+    display: flex;
+  }
+}
+
+.nav-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 0.35rem 0;
+  border-bottom: 2px solid transparent;
+  transition: color var(--transition-smooth), border-color var(--transition-smooth);
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.top-action-btn {
+  min-height: 40px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--bg-Abyss);
+  background: var(--accent-primary);
+  border-radius: var(--radius-inner);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast), background-color var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.top-action-btn:hover {
+  background: var(--accent-primary-hover);
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.28);
+}
+
+.top-action-btn:active {
+  transform: scale(0.97);
+}
+
+/* ==========================================================================
+   3. MAIN WORKSPACE & RESPONSIVE MOBILE-FIRST GRID
+   ========================================================================== */
+
+.app-shell {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    padding: 2rem 1.5rem 4rem;
+    gap: 2rem;
+  }
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .workspace-grid {
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 2rem;
+  }
+}
+
+/* ==========================================================================
+   4. GLASSMORPHISM CARDS & SURFACE CONTAINERS
+   ========================================================================== */
+
+.glass-card {
+  background: var(--surface-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
+  box-shadow: 0 18px 40px -15px rgba(0, 0, 0, 0.65);
+  transition: border-color var(--transition-smooth), transform var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+@media (min-width: 640px) {
+  .glass-card {
+    padding: 2rem;
+  }
+}
+
+/* ==========================================================================
+   5. METADATA & TYPOGRAPHIC HIERARCHY (Zero-Pill Discipline)
+   ========================================================================== */
+
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 0.65rem;
+}
+
+.meta-sep {
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.meta-highlight {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-wrap: balance;
+  margin-bottom: 0.65rem;
+}
+
+.hero-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  max-width: 62ch;
+  margin-bottom: 1.5rem;
+}
+
+.section-heading {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+/* ==========================================================================
+   6. SETUP, CREATE GAME & JOIN ROOM CONTROLS
+   ========================================================================== */
+
+.action-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.primary-cta-btn {
+  width: 100%;
+  min-height: 52px;
+  padding: 0.875rem 1.5rem;
+  border-radius: var(--radius-card);
+  background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+  color: #060913;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  box-shadow: 0 8px 25px -4px rgba(56, 189, 248, 0.35);
+  transition: transform var(--transition-fast), box-shadow var(--transition-smooth), filter var(--transition-smooth);
+}
+
+.primary-cta-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 12px 30px -4px rgba(56, 189, 248, 0.48);
+}
+
+.primary-cta-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.divider-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.divider-row::before,
+.divider-row::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-hairline);
+}
+
+.join-form {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.room-code-input {
+  flex: 1;
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  background: var(--surface-input);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-card);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.room-code-input::placeholder {
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.room-code-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+}
+
+.secondary-btn {
+  min-height: 48px;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface-interactive);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background-color var(--transition-smooth), border-color var(--transition-smooth), transform var(--transition-fast);
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: rgba(51, 65, 104, 0.75);
+  border-color: var(--accent-primary);
+}
+
+.secondary-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.error-banner {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-inner);
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fda4af;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* ==========================================================================
+   7. LOBBY PHASE (ROOM CODE & COPY INVITE LINK)
+   ========================================================================== */
+
+.room-code-showcase {
+  background: var(--surface-input);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-card);
+  padding: 1.25rem;
+  text-align: center;
+  margin: 1.25rem 0;
+}
+
+.room-code-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.room-code-digits {
+  font-family: var(--font-mono);
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--accent-primary);
+  padding-left: 0.25em;
+}
+
+.invite-url-preview {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.copy-invite-btn {
+  width: 100%;
+  min-height: 52px;
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--radius-card);
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid var(--accent-primary);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.16);
+  transition: background-color var(--transition-smooth), transform var(--transition-fast), box-shadow var(--transition-smooth);
+}
+
+.copy-invite-btn:hover {
+  background: rgba(56, 189, 248, 0.24);
+  box-shadow: 0 0 28px rgba(56, 189, 248, 0.28);
+}
+
+.copy-invite-btn:active {
+  transform: scale(0.98);
+}
+
+.lobby-waiting-box {
+  margin-top: 1.25rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--radius-card);
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lobby-status-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.lobby-helper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.small-action-btn {
+  min-height: 40px;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-inner);
+  background: var(--surface-interactive);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: color var(--transition-smooth), border-color var(--transition-smooth), background-color var(--transition-smooth);
+}
+
+.small-action-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+/* ==========================================================================
+   8. ACTIVE GAMEPLAY ARENA & GLOWING TURN INDICATOR
+   ========================================================================== */
+
+.turn-banner {
+  border-radius: var(--radius-card);
+  padding: 1.15rem 1.35rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-hairline);
+  background: rgba(15, 23, 42, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: all var(--transition-smooth);
+}
+
+/* Glowing Effect for Active Turn Indicator */
+.turn-banner.is-my-turn {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.14) 0%, rgba(99, 102, 241, 0.18) 100%);
+  border-color: var(--accent-primary);
+  box-shadow:
+    0 0 24px rgba(56, 189, 248, 0.25),
+    inset 0 0 16px rgba(56, 189, 248, 0.08);
+}
+
+.turn-banner.is-waiting-turn {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: var(--border-hairline);
+  box-shadow: none;
+}
+
+.turn-headline {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.turn-subtext {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+}
+
+/* Truth & Dare Choice Buttons */
+.choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.choice-btn {
+  min-height: 116px;
+  padding: 1.25rem 1rem;
+  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-family: var(--font-display);
+  transition: transform var(--transition-fast), box-shadow var(--transition-smooth), opacity var(--transition-smooth), border-color var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.choice-btn-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.choice-btn-caption {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.88;
+}
+
+.choice-btn-truth {
+  background: linear-gradient(145deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.38) 100%);
+  border: 1.5px solid var(--accent-truth);
+  color: var(--text-primary);
+  box-shadow: 0 10px 28px -6px var(--accent-truth-glow);
+}
+
+.choice-btn-truth:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px -4px rgba(56, 189, 248, 0.42);
+  background: linear-gradient(145deg, rgba(14, 165, 233, 0.32) 0%, rgba(2, 132, 199, 0.5) 100%);
+}
+
+.choice-btn-dare {
+  background: linear-gradient(145deg, rgba(244, 63, 94, 0.22) 0%, rgba(225, 29, 72, 0.38) 100%);
+  border: 1.5px solid var(--accent-dare);
+  color: var(--text-primary);
+  box-shadow: 0 10px 28px -6px var(--accent-dare-glow);
+}
+
+.choice-btn-dare:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px -4px rgba(244, 63, 94, 0.42);
+  background: linear-gradient(145deg, rgba(244, 63, 94, 0.32) 0%, rgba(225, 29, 72, 0.5) 100%);
+}
+
+.choice-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.choice-btn:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: grayscale(35%);
+}
+
+/* Question Reveal Stage */
+.question-stage {
+  min-height: 190px;
+  border-radius: var(--radius-card);
+  padding: 1.75rem 1.5rem;
+  background: var(--surface-input);
+  border: 1px solid var(--border-highlight);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.25rem;
+  transition: all var(--transition-smooth);
+}
+
+.question-stage.is-truth {
+  border-color: var(--accent-truth);
+  box-shadow: 0 0 32px rgba(56, 189, 248, 0.16);
+}
+
+.question-stage.is-dare {
+  border-color: var(--accent-dare);
+  box-shadow: 0 0 32px rgba(244, 63, 94, 0.16);
+}
+
+.question-kicker {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.question-stage.is-truth .question-kicker {
+  color: var(--accent-truth);
+}
+
+.question-stage.is-dare .question-kicker {
+  color: var(--accent-dare);
+}
+
+.question-body-text {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 3.2vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.32;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+
+.question-empty-placeholder {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: auto 0;
+}
+
+.next-turn-btn {
+  width: 100%;
+  min-height: 50px;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-inner);
+  background: var(--text-primary);
+  color: var(--bg-Abyss);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform var(--transition-fast), background-color var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.next-turn-btn:hover {
+  background: #e2e8f0;
+  box-shadow: 0 6px 20px rgba(248, 250, 252, 0.22);
+}
+
+.next-turn-btn:active {
+  transform: scale(0.98);
+}
+
+/* ==========================================================================
+   9. SIDEBAR PANELS: SIBLING STATUS, DECK BROWSER & SOURCE VIEWER
+   ========================================================================== */
+
+.side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.player-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-inner);
+  background: var(--surface-input);
+  border: 1px solid var(--border-hairline);
+  transition: border-color var(--transition-smooth);
+}
+
+.player-row.active-turn-row {
+  border-color: var(--accent-primary);
+}
+
+.player-identity {
+  display: flex;
+  flex-direction: column;
+}
+
+.player-title {
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.player-role-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.player-state-text {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.player-state-text.online {
+  color: var(--success-color);
+}
+
+.player-state-text.waiting {
+  color: var(--warning-color);
+}
+
+/* Segmented Control for Prompt Deck & Code Tabs */
+.segmented-bar {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  background: var(--surface-input);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-inner);
+  margin: 0.85rem 0 1rem;
+}
+
+.segment-btn {
+  flex: 1;
+  min-height: 38px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: background-color var(--transition-smooth), color var(--transition-smooth);
+}
+
+.segment-btn.active {
+  background: var(--surface-interactive);
+  color: var(--text-primary);
+}
+
+.prompt-list-container {
+  max-height: 290px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.25rem;
+}
+
+.prompt-item {
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-inner);
+  background: var(--surface-input);
+  border: 1px solid var(--border-hairline);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 0.65rem;
+  align-items: baseline;
+}
+
+.prompt-index {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   10. SOURCE FILES INSPECTOR SECTION
+   ========================================================================== */
+
+.source-viewer-section {
+  margin-top: 0.5rem;
+}
+
+.code-header-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.code-pre-wrapper {
+  position: relative;
+  border-radius: var(--radius-inner);
+  background: #050811;
+  border: 1px solid var(--border-hairline);
+  overflow: hidden;
+}
+
+.code-pre {
+  max-height: 420px;
+  overflow: auto;
+  padding: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: #e2e8f0;
+  tab-size: 2;
+}
+
+/* ==========================================================================
+   11. TOAST NOTIFICATION
+   ========================================================================== */
+
+.toast-notification {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 60;
+  background: #0f172a;
+  border: 1px solid var(--accent-primary);
+  color: var(--text-primary);
+  padding: 0.75rem 1.35rem;
+  border-radius: var(--radius-card);
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(56, 189, 248, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-smooth), transform var(--transition-smooth);
+}
+
+.toast-notification.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ==========================================================================
+   12. FOOTER
+   ========================================================================== */
+
+.site-footer {
+  border-top: 1px solid var(--border-hairline);
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}

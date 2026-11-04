@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidRoomCode(code) {
+      return code is string && code.size() == 5 && code.matches('^[A-Z0-9]{5}$');
+    }
+
+    function isValidRoom(data) {
+      return data.keys().hasAll([
+        'roomCode',
+        'hostUid',
+        'player1_connected',
+        'player2_connected',
+        'current_turn',
+        'game_status',
+        'question_type',
+        'question_text',
+        'round_count',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'roomCode',
+        'hostUid',
+        'guestUid',
+        'player1_connected',
+        'player2_connected',
+        'current_turn',
+        'game_status',
+        'question_type',
+        'question_text',
+        'round_count',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      isValidRoomCode(data.roomCode) &&
+      isValidId(data.hostUid) &&
+      (!('guestUid' in data) || isValidId(data.guestUid)) &&
+      data.player1_connected is bool &&
+      data.player2_connected is bool &&
+      data.current_turn is string &&
+      data.current_turn.size() <= 10 &&
+      (data.current_turn == 'player1' || data.current_turn == 'player2') &&
+      data.game_status is string &&
+      data.game_status.size() <= 16 &&
+      (data.game_status == 'waiting' || data.game_status == 'playing' || data.game_status == 'completed') &&
+      data.question_type is string &&
+      data.question_type.size() <= 10 &&
+      (data.question_type == 'none' || data.question_type == 'truth' || data.question_type == 'dare') &&
+      data.question_text is string &&
+      data.question_text.size() >= 0 &&
+      data.question_text.size() <= 300 &&
+      data.round_count is int &&
+      data.round_count >= 0 &&
+      data.round_count <= 10000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    match /rooms/{roomId} {
+      allow get: if isSignedIn() && isValidRoomCode(roomId) && (
+        existing().hostUid == request.auth.uid ||
+        ('guestUid' in existing() && existing().guestUid == request.auth.uid) ||
+        existing().game_status == 'waiting'
+      );
+
+      allow list: if isSignedIn() && (
+        existing().hostUid == request.auth.uid ||
+        ('guestUid' in existing() && existing().guestUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidRoomCode(roomId) &&
+        isValidRoom(incoming()) &&
+        incoming().roomCode == roomId &&
+        incoming().hostUid == request.auth.uid &&
+        !('guestUid' in incoming()) &&
+        incoming().game_status == 'waiting' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn() &&
+        isValidRoomCode(roomId) &&
+        isValidRoom(incoming()) &&
+        existing().game_status != 'completed' &&
+        incoming().roomCode == existing().roomCode &&
+        incoming().hostUid == existing().hostUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action 1: Guest joins a waiting room
+          (
+            existing().game_status == 'waiting' &&
+            !('guestUid' in existing()) &&
+            incoming().guestUid == request.auth.uid &&
+            incoming().player2_connected == true &&
+            incoming().game_status == 'playing' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['guestUid', 'player2_connected', 'game_status', 'updatedAt'])
+          ) ||
+          // Action 2: Active player reveals Truth/Dare or advances turn
+          (
+            (existing().hostUid == request.auth.uid || ('guestUid' in existing() && existing().guestUid == request.auth.uid)) &&
+            (!('guestUid' in existing()) || incoming().guestUid == existing().guestUid) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'player1_connected',
+              'player2_connected',
+              'current_turn',
+              'game_status',
+              'question_type',
+              'question_text',
+              'round_count',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        isValidRoomCode(roomId) &&
+        existing().hostUid == request.auth.uid;
+    }
+  }
+}
