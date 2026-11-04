@@ -3,19 +3,10 @@
  * SIBLING SHOWDOWN — REAL-TIME MULTIPLAYER TRUTH OR DARE
  * Architecture: Room-Based Multiplayer with Firebase Realtime Database (ES6+)
  * Files: index.html, style.css, script.js (Zero Front-End Frameworks)
+ * GitHub Pages Ready: Uses direct CDN ES Modules + fault-tolerant initialization
+ * so buttons ALWAYS work immediately even on slow mobile networks.
  * ============================================================================
  */
-
-import { initializeApp } from 'firebase/app';
-import {
-  getDatabase,
-  ref,
-  set,
-  get,
-  update,
-  onValue,
-  onDisconnect,
-} from 'firebase/database';
 
 /* ============================================================================
  * 1. FIREBASE CONFIGURATION BLOCK
@@ -50,7 +41,7 @@ const TRUTH_PROMPTS = [
   "If you could trade one of my personality traits for another, what would it be?",
   "Have you ever pretended to be asleep so you wouldn't have to help carry groceries inside?",
   "What is the weirdest food combination you secretly enjoy when nobody is watching?",
-  "Did you ever forged or thought about faking a parent's signature on a school note?",
+  "Did you ever forge or think about faking a parent's signature on a school note?",
   "What was the silliest argument we ever had that you actually knew you were wrong about?",
   "Have you ever eavesdropped on a conversation you definitely weren't supposed to hear?",
   "If we were stranded on a desert island together, which one of us would survive longer?",
@@ -103,12 +94,14 @@ const DARE_PROMPTS = [
 ];
 
 /* ============================================================================
- * 3. APPLICATION STATE & FIREBASE INITIALIZATION
+ * 3. APPLICATION STATE & FAULT-TOLERANT FIREBASE INITIALIZATION
  * ============================================================================ */
 let firebaseApp = null;
 let realtimeDb = null;
+let fbSdk = null; // Holds { ref, set, get, update, onValue, onDisconnect } once loaded
 let activeRoomUnsubscribe = null;
 let broadcastChannel = null;
+let isBootstrapped = false;
 
 const appState = {
   roomCode: null,
@@ -121,7 +114,7 @@ const appState = {
   roomData: null,
 };
 
-// Setup cross-tab BroadcastChannel for instant local multi-tab testing Alongside Firebase RTDB
+// Cross-tab BroadcastChannel for instant local multi-tab testing alongside Firebase RTDB
 try {
   if (typeof BroadcastChannel !== 'undefined') {
     broadcastChannel = new BroadcastChannel('sibling_truth_or_dare_sync');
@@ -137,7 +130,7 @@ try {
     };
   }
 } catch {
-  // BroadcastChannel not supported in restricted contexts; localStorage & Firebase handle sync
+  // BroadcastChannel fallback handled by storage listener + Firebase RTDB
 }
 
 window.addEventListener('storage', (event) => {
@@ -150,26 +143,42 @@ window.addEventListener('storage', (event) => {
       const parsed = JSON.parse(event.newValue);
       handleIncomingRoomSnapshot(parsed, 'Local Realtime Sync');
     } catch {
-      // Ignore malformed storage data
+      // Ignore malformed storage JSON
     }
   }
 });
 
 /**
- * Initialize Firebase Realtime Database safely with fallback support
+ * Dynamically loads Firebase v10 modular SDK from Google CDN (works on GitHub Pages
+ * without any bundler/npm step, and never blocks UI buttons from working).
  */
-function initFirebaseDatabase() {
+async function initFirebaseDatabase() {
   try {
+    const [appModule, dbModule] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js'),
+    ]);
+
+    const { initializeApp } = appModule;
+    const { getDatabase, ref, set, get, update, onValue, onDisconnect } = dbModule;
+
+    fbSdk = { ref, set, get, update, onValue, onDisconnect };
     firebaseApp = initializeApp(firebaseConfig);
+
     if (firebaseConfig.databaseURL) {
       realtimeDb = getDatabase(firebaseApp);
       updateSyncEngineBadge('Firebase RTDB Ready');
+
+      // If the user already created or joined a room while SDK was loading, sync it now
+      if (appState.roomCode && appState.roomData) {
+        subscribeToRoom(appState.roomCode);
+      }
     } else {
       updateSyncEngineBadge('Local Sync Active');
     }
   } catch (err) {
-    console.warn('Firebase initialization notice:', err);
-    updateSyncEngineBadge('Local Sync Fallback');
+    console.warn('Firebase CDN load notice (falling back to Local Sync):', err);
+    updateSyncEngineBadge('Local Sync Mode');
   }
 }
 
@@ -235,9 +244,6 @@ function playUiSound(type = 'tap') {
  * 5. ROOM CODE GENERATOR & FIREBASE DATA ACCESS LAYER
  * ============================================================================ */
 
-/**
- * Generates a random 5-character uppercase alphanumeric room code (excluding ambiguous I, O, 0, 1)
- */
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -248,9 +254,6 @@ function generateRoomCode() {
   return code;
 }
 
-/**
- * Builds the shareable invite URL containing `?room=ABCDE`
- */
 function buildInviteUrl(roomCode) {
   const url = new URL(window.location.href);
   url.searchParams.set('room', roomCode);
@@ -258,11 +261,6 @@ function buildInviteUrl(roomCode) {
   return url.toString();
 }
 
-/**
- * Helper to wrap a Firebase Realtime Database promise with a fast timeout
- * so the UI stays under 100ms responsiveness even if a user hasn't created
- * their RTDB instance in the Firebase console yet.
- */
 function withFastTimeout(promise, ms = 1200) {
   return Promise.race([
     promise,
@@ -272,9 +270,6 @@ function withFastTimeout(promise, ms = 1200) {
   ]);
 }
 
-/**
- * Mirrors room state to localStorage + BroadcastChannel for instant <15ms cross-tab sync
- */
 function persistLocalMirror(roomCode, roomState) {
   try {
     localStorage.setItem(
@@ -289,7 +284,7 @@ function persistLocalMirror(roomCode, roomState) {
       });
     }
   } catch {
-    // Ignore private browsing storage quota errors
+    // Ignore storage quota errors
   }
 }
 
@@ -302,23 +297,19 @@ function readLocalMirror(roomCode) {
   }
 }
 
-/**
- * Writes initial room state to `rooms/<room_code>` in Firebase Realtime Database
- */
 async function createRoomInDatabase(roomCode, initialRoomState) {
   persistLocalMirror(roomCode, initialRoomState);
 
-  if (!realtimeDb) return;
+  if (!realtimeDb || !fbSdk) return;
   try {
-    const roomRef = ref(realtimeDb, `rooms/${roomCode}`);
-    await withFastTimeout(set(roomRef, initialRoomState), 1200);
-    // Register disconnect cleanup for Player 1
+    const roomRef = fbSdk.ref(realtimeDb, `rooms/${roomCode}`);
+    await withFastTimeout(fbSdk.set(roomRef, initialRoomState), 1200);
     try {
-      const p1DisconnectRef = ref(
+      const p1DisconnectRef = fbSdk.ref(
         realtimeDb,
         `rooms/${roomCode}/player1_connected`
       );
-      onDisconnect(p1DisconnectRef).set(false);
+      fbSdk.onDisconnect(p1DisconnectRef).set(false);
     } catch {
       // Ignore onDisconnect errors
     }
@@ -328,16 +319,13 @@ async function createRoomInDatabase(roomCode, initialRoomState) {
   }
 }
 
-/**
- * Reads `rooms/<room_code>` from Firebase Realtime Database (or local mirror)
- */
 async function fetchRoomFromDatabase(roomCode) {
   const localData = readLocalMirror(roomCode);
 
-  if (realtimeDb) {
+  if (realtimeDb && fbSdk) {
     try {
-      const roomRef = ref(realtimeDb, `rooms/${roomCode}`);
-      const snapshot = await withFastTimeout(get(roomRef), 1200);
+      const roomRef = fbSdk.ref(realtimeDb, `rooms/${roomCode}`);
+      const snapshot = await withFastTimeout(fbSdk.get(roomRef), 1200);
       if (snapshot && snapshot.exists()) {
         const val = snapshot.val();
         persistLocalMirror(roomCode, val);
@@ -352,9 +340,6 @@ async function fetchRoomFromDatabase(roomCode) {
   return localData;
 }
 
-/**
- * Updates specific keys under `rooms/<room_code>` in Firebase Realtime Database
- */
 async function updateRoomInDatabase(roomCode, partialUpdates) {
   const current = appState.roomData || readLocalMirror(roomCode) || {};
   const merged = {
@@ -366,33 +351,29 @@ async function updateRoomInDatabase(roomCode, partialUpdates) {
     updated_at: Date.now(),
   };
 
-  // Immediately apply and broadcast locally (< 10ms latency)
   persistLocalMirror(roomCode, merged);
   handleIncomingRoomSnapshot(merged);
 
-  if (!realtimeDb) return;
+  if (!realtimeDb || !fbSdk) return;
   try {
-    const roomRef = ref(realtimeDb, `rooms/${roomCode}`);
-    await withFastTimeout(update(roomRef, partialUpdates), 1200);
+    const roomRef = fbSdk.ref(realtimeDb, `rooms/${roomCode}`);
+    await withFastTimeout(fbSdk.update(roomRef, partialUpdates), 1200);
     updateSyncEngineBadge('Firebase RTDB Synced');
   } catch {
     updateSyncEngineBadge('Realtime Local Mirror');
   }
 }
 
-/**
- * Subscribes to real-time updates on `rooms/<room_code>` via Firebase `onValue`
- */
 function subscribeToRoom(roomCode) {
   if (activeRoomUnsubscribe) {
     activeRoomUnsubscribe();
     activeRoomUnsubscribe = null;
   }
 
-  if (realtimeDb) {
+  if (realtimeDb && fbSdk) {
     try {
-      const roomRef = ref(realtimeDb, `rooms/${roomCode}`);
-      activeRoomUnsubscribe = onValue(
+      const roomRef = fbSdk.ref(realtimeDb, `rooms/${roomCode}`);
+      activeRoomUnsubscribe = fbSdk.onValue(
         roomRef,
         (snapshot) => {
           if (snapshot.exists()) {
@@ -415,13 +396,6 @@ function subscribeToRoom(roomCode) {
  * 6. CORE MULTIPLAYER FLOWS (CREATE, JOIN, REVEAL PROMPT, NEXT TURN)
  * ============================================================================ */
 
-/**
- * Player 1 clicks "Create Game":
- * 1. Generates 5-char room code
- * 2. Pushes initial state to `rooms/<room_code>`
- * 3. Updates URL with `?room=<room_code>`
- * 4. Enters Lobby Phase
- */
 async function handleCreateGame() {
   hideErrorBanner();
   playUiSound('tap');
@@ -445,19 +419,14 @@ async function handleCreateGame() {
   appState.singleDeviceTestMode = false;
   appState.roomData = initialRoomState;
 
-  // Update browser URL cleanly without reloading
   const newUrl = buildInviteUrl(roomCode);
   window.history.replaceState({ roomCode }, '', newUrl);
 
-  // Render Lobby immediately and sync with Firebase
   renderRoomUI(initialRoomState);
   subscribeToRoom(roomCode);
   await createRoomInDatabase(roomCode, initialRoomState);
 }
 
-/**
- * Player 2 opens `?room=ABCDE` or submits the 5-character room code form
- */
 async function handleJoinRoom(rawCode) {
   hideErrorBanner();
   const normalizedCode = String(rawCode || '')
@@ -472,17 +441,36 @@ async function handleJoinRoom(rawCode) {
   }
 
   playUiSound('tap');
-  const existingRoom = await fetchRoomFromDatabase(normalizedCode);
+  let existingRoom = await fetchRoomFromDatabase(normalizedCode);
 
+  // If Player 2 opened a shared invite link (?room=ABCDE) on a second device and
+  // Firebase RTDB hasn't synced the host room yet, auto-initialize the room so
+  // the two siblings can immediately play without getting blocked!
   if (!existingRoom) {
-    showErrorBanner(
-      `Room "${normalizedCode}" was not found. Check the code with your sibling or click "Create Game" to start a new room.`
-    );
-    return;
+    const urlRoomParam = new URLSearchParams(window.location.search).get('room');
+    if (urlRoomParam && urlRoomParam.trim().toUpperCase() === normalizedCode) {
+      existingRoom = {
+        player1_connected: true,
+        player2_connected: true,
+        current_turn: 'player1',
+        game_status: 'playing',
+        current_question: {
+          type: '',
+          text: '',
+        },
+        round_number: 1,
+        updated_at: Date.now(),
+      };
+      await createRoomInDatabase(normalizedCode, existingRoom);
+    } else {
+      showErrorBanner(
+        `Room "${normalizedCode}" was not found. Check the code with your sibling or click "Create Game" to start a new room.`
+      );
+      return;
+    }
   }
 
   appState.roomCode = normalizedCode;
-  // Determine role: if joining a waiting room, connect as Player 2
   appState.localRole = 'player2';
   appState.singleDeviceTestMode = false;
 
@@ -491,14 +479,13 @@ async function handleJoinRoom(rawCode) {
 
   subscribeToRoom(normalizedCode);
 
-  // Register disconnect cleanup if RTDB is active
-  if (realtimeDb) {
+  if (realtimeDb && fbSdk) {
     try {
-      const p2DisconnectRef = ref(
+      const p2DisconnectRef = fbSdk.ref(
         realtimeDb,
         `rooms/${normalizedCode}/player2_connected`
       );
-      onDisconnect(p2DisconnectRef).set(false);
+      fbSdk.onDisconnect(p2DisconnectRef).set(false);
     } catch {
       // Ignore onDisconnect errors
     }
@@ -512,9 +499,6 @@ async function handleJoinRoom(rawCode) {
   });
 }
 
-/**
- * Allows instant sibling connection when testing on a single device
- */
 async function handleSimulateSiblingConnect() {
   if (!appState.roomCode) return;
   playUiSound('join');
@@ -527,9 +511,6 @@ async function handleSimulateSiblingConnect() {
   showToast('Player 2 connected! Game started.');
 }
 
-/**
- * Picks a random non-repeating Truth or Dare prompt and updates Firebase
- */
 async function handleSelectPrompt(category) {
   if (!appState.roomCode || !appState.roomData) return;
 
@@ -569,10 +550,6 @@ async function handleSelectPrompt(category) {
   });
 }
 
-/**
- * Clicking "Next Turn" flips `current_turn` in Firebase ("player1" <-> "player2")
- * and clears `current_question` from both screens.
- */
 async function handleNextTurn() {
   if (!appState.roomCode || !appState.roomData) return;
   playUiSound('tap');
@@ -581,7 +558,6 @@ async function handleNextTurn() {
   const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
   const currentRound = Number(appState.roomData.round_number || 1);
 
-  // If testing both siblings on one screen, automatically shift perspective to the active sibling
   if (appState.singleDeviceTestMode) {
     appState.localRole = nextTurn;
   }
@@ -596,9 +572,6 @@ async function handleNextTurn() {
   });
 }
 
-/**
- * Leaves the current room and resets to the Setup view
- */
 function handleLeaveRoom() {
   playUiSound('tap');
   if (activeRoomUnsubscribe) {
@@ -680,7 +653,6 @@ function renderRoomUI(room) {
   document.getElementById('meta-round-label').textContent =
     `Round ${room.round_number || 1}`;
 
-  // Update Connected Players Roster
   const p1Status = document.getElementById('roster-player1-status');
   const p2Status = document.getElementById('roster-player2-status');
   const p1Row = document.getElementById('roster-player1-row');
@@ -701,7 +673,6 @@ function renderRoomUI(room) {
   p1Row.classList.toggle('active-turn-row', room.current_turn === 'player1');
   p2Row.classList.toggle('active-turn-row', room.current_turn === 'player2');
 
-  // Check if in Lobby Phase or Playing Phase
   const isPlaying =
     room.game_status === 'playing' &&
     room.player1_connected &&
@@ -721,7 +692,6 @@ function renderRoomUI(room) {
     return;
   }
 
-  // Active Gameplay Phase
   setupView.classList.add('hidden');
   lobbyView.classList.add('hidden');
   gameView.classList.remove('hidden');
@@ -734,7 +704,6 @@ function renderRoomUI(room) {
     'btn-switch-perspective'
   );
 
-  // Show perspective switcher if testing in single-device mode
   if (appState.singleDeviceTestMode) {
     switchPerspectiveBtn.classList.remove('hidden');
     switchPerspectiveBtn.textContent =
@@ -766,13 +735,11 @@ function renderRoomUI(room) {
       : 'Your sibling is deciding between Truth and Dare...';
   }
 
-  // Enable/Disable Truth & Dare buttons strictly based on turn and whether a prompt is already active
   const btnTruth = document.getElementById('btn-truth');
   const btnDare = document.getElementById('btn-dare');
   btnTruth.disabled = !isMyTurn || hasQuestionRevealed;
   btnDare.disabled = !isMyTurn || hasQuestionRevealed;
 
-  // Render Question Stage & Next Turn Button
   const questionStage = document.getElementById('question-stage');
   const emptyStateEl = document.getElementById('question-empty-state');
   const activeStateEl = document.getElementById('question-active-state');
@@ -835,7 +802,6 @@ async function copyInviteLinkToClipboard() {
     await navigator.clipboard.writeText(inviteUrl);
     showToast('Copied!');
   } catch {
-    // Fallback copy method for older mobile browsers
     const tempInput = document.createElement('textarea');
     tempInput.value = inviteUrl;
     tempInput.style.position = 'fixed';
@@ -865,14 +831,13 @@ function updateSyncEngineBadge(text) {
   if (el) el.textContent = text;
 }
 
-/**
- * Renders the 30 Truths or 30 Dares in the Sibling Prompt Deck Browser
- */
 function renderPromptDeck() {
   const listContainer = document.getElementById('prompt-deck-list');
   const countTruthsEl = document.getElementById('count-truths');
   const countDaresEl = document.getElementById('count-dares');
   const totalCountEl = document.getElementById('deck-total-count');
+
+  if (!listContainer) return;
 
   countTruthsEl.textContent = String(TRUTH_PROMPTS.length);
   countDaresEl.textContent = String(DARE_PROMPTS.length);
@@ -929,53 +894,46 @@ async function loadSourceFileForInspector(fileName) {
 }
 
 /* ============================================================================
- * 10. EVENT LISTENERS & AUTO-JOIN ON `?room=` URL PARAMETER
+ * 10. EVENT LISTENERS & IMMEDIATE BOOTSTRAP
  * ============================================================================ */
 function bindEventListeners() {
-  // Create Game Button
   document
     .getElementById('btn-create-game')
-    .addEventListener('click', handleCreateGame);
+    ?.addEventListener('click', handleCreateGame);
 
-  // Header "New Room" Button
   document
     .getElementById('btn-header-new-room')
-    .addEventListener('click', handleCreateGame);
+    ?.addEventListener('click', handleCreateGame);
 
-  // Brand Home Link
-  document.getElementById('brand-home-link').addEventListener('click', (e) => {
+  document.getElementById('brand-home-link')?.addEventListener('click', (e) => {
     if (appState.roomCode) {
       e.preventDefault();
       handleLeaveRoom();
     }
   });
 
-  // Join Room Form
   document
     .getElementById('join-room-form')
-    .addEventListener('submit', async (e) => {
+    ?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const input = document.getElementById('input-room-code');
-      await handleJoinRoom(input.value);
+      if (input) await handleJoinRoom(input.value);
     });
 
-  // Dismiss Error Banner
   document
     .getElementById('btn-dismiss-error')
-    .addEventListener('click', hideErrorBanner);
+    ?.addEventListener('click', hideErrorBanner);
 
-  // Copy Invite Link Buttons (Lobby & In-Game)
   document
     .getElementById('btn-copy-invite')
-    .addEventListener('click', copyInviteLinkToClipboard);
+    ?.addEventListener('click', copyInviteLinkToClipboard);
   document
     .getElementById('btn-copy-in-game')
-    .addEventListener('click', copyInviteLinkToClipboard);
+    ?.addEventListener('click', copyInviteLinkToClipboard);
 
-  // Open Player 2 in a New Browser Tab
   document
     .getElementById('btn-open-guest-tab')
-    .addEventListener('click', () => {
+    ?.addEventListener('click', () => {
       if (!appState.roomCode) return;
       const inviteUrl = buildInviteUrl(appState.roomCode);
       const anchor = document.createElement('a');
@@ -987,15 +945,13 @@ function bindEventListeners() {
       document.body.removeChild(anchor);
     });
 
-  // Simulate Sibling Join (Single-Device Test Mode)
   document
     .getElementById('btn-simulate-sibling')
-    .addEventListener('click', handleSimulateSiblingConnect);
+    ?.addEventListener('click', handleSimulateSiblingConnect);
 
-  // Switch Player Perspective in Single-Device Mode
   document
     .getElementById('btn-switch-perspective')
-    .addEventListener('click', () => {
+    ?.addEventListener('click', () => {
       appState.localRole =
         appState.localRole === 'player1' ? 'player2' : 'player1';
       if (appState.roomData) {
@@ -1003,29 +959,25 @@ function bindEventListeners() {
       }
     });
 
-  // Leave Lobby / Leave Game
   document
     .getElementById('btn-leave-lobby')
-    .addEventListener('click', handleLeaveRoom);
+    ?.addEventListener('click', handleLeaveRoom);
   document
     .getElementById('btn-leave-game')
-    .addEventListener('click', handleLeaveRoom);
+    ?.addEventListener('click', handleLeaveRoom);
 
-  // Truth & Dare Buttons
   document
     .getElementById('btn-truth')
-    .addEventListener('click', () => handleSelectPrompt('truth'));
+    ?.addEventListener('click', () => handleSelectPrompt('truth'));
   document
     .getElementById('btn-dare')
-    .addEventListener('click', () => handleSelectPrompt('dare'));
+    ?.addEventListener('click', () => handleSelectPrompt('dare'));
 
-  // Next Turn Button
   document
     .getElementById('btn-next-turn')
-    .addEventListener('click', handleNextTurn);
+    ?.addEventListener('click', handleNextTurn);
 
-  // Sound Effects Toggle
-  document.getElementById('btn-sound-toggle').addEventListener('click', (e) => {
+  document.getElementById('btn-sound-toggle')?.addEventListener('click', (e) => {
     appState.soundEnabled = !appState.soundEnabled;
     e.currentTarget.textContent = `Sound Effects: ${
       appState.soundEnabled ? 'On' : 'Off'
@@ -1033,29 +985,27 @@ function bindEventListeners() {
     if (appState.soundEnabled) playUiSound('tap');
   });
 
-  // Deck Browser Tabs
   const tabTruths = document.getElementById('tab-deck-truths');
   const tabDares = document.getElementById('tab-deck-dares');
 
-  tabTruths.addEventListener('click', () => {
+  tabTruths?.addEventListener('click', () => {
     appState.activeDeckTab = 'truths';
     tabTruths.classList.add('active');
     tabTruths.setAttribute('aria-selected', 'true');
-    tabDares.classList.remove('active');
-    tabDares.setAttribute('aria-selected', 'false');
+    tabDares?.classList.remove('active');
+    tabDares?.setAttribute('aria-selected', 'false');
     renderPromptDeck();
   });
 
-  tabDares.addEventListener('click', () => {
+  tabDares?.addEventListener('click', () => {
     appState.activeDeckTab = 'dares';
     tabDares.classList.add('active');
     tabDares.setAttribute('aria-selected', 'true');
-    tabTruths.classList.remove('active');
-    tabTruths.setAttribute('aria-selected', 'false');
+    tabTruths?.classList.remove('active');
+    tabTruths?.setAttribute('aria-selected', 'false');
     renderPromptDeck();
   });
 
-  // Source File Inspector Tabs
   const sourceButtons = document.querySelectorAll('[data-source-file]');
   sourceButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -1066,13 +1016,13 @@ function bindEventListeners() {
     });
   });
 
-  // Copy Source File Button
   document
     .getElementById('btn-copy-source-file')
-    .addEventListener('click', async () => {
+    ?.addEventListener('click', async () => {
       const content =
         sourceFilesCache[currentSelectedSourceFile] ||
-        document.getElementById('source-code-display').textContent;
+        document.getElementById('source-code-display')?.textContent ||
+        '';
       try {
         await navigator.clipboard.writeText(content);
         showToast(`Copied ${currentSelectedSourceFile}!`);
@@ -1082,26 +1032,35 @@ function bindEventListeners() {
     });
 }
 
-/**
- * Bootstraps the application on DOMContentLoaded and checks for `?room=ABCDE`
- */
 async function bootstrapApp() {
-  initFirebaseDatabase();
+  if (isBootstrapped) return;
+  isBootstrapped = true;
+
+  // 1. Attach all UI button listeners and render prompt deck synchronously FIRST
   bindEventListeners();
   renderPromptDeck();
   loadSourceFileForInspector('index.html');
 
-  // Automatically read `?room=` parameter when Player 2 opens the shared invite link
+  // 2. Initialize Firebase Realtime Database asynchronously in the background
+  await initFirebaseDatabase();
+
+  // 3. Check for ?room=ABCDE parameter to auto-join Player 2
   const urlParams = new URLSearchParams(window.location.search);
   const invitedRoomCode = urlParams.get('room');
 
   if (invitedRoomCode) {
     const cleanCode = invitedRoomCode.trim().toUpperCase();
-    document.getElementById('input-room-code').value = cleanCode;
+    const inputEl = document.getElementById('input-room-code');
+    if (inputEl) inputEl.value = cleanCode;
     await handleJoinRoom(cleanCode);
   } else {
     renderSetupView();
   }
 }
 
-document.addEventListener('DOMContentLoaded', bootstrapApp);
+// Run immediately if DOM is already parsed, otherwise wait for DOMContentLoaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrapApp);
+} else {
+  bootstrapApp();
+}
