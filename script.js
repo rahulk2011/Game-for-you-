@@ -915,13 +915,13 @@ async function loadSourceFileForInspector(fileName) {
   }
 
   try {
-    const response = await fetch(`/${fileName}`);
+    const response = await fetch(`./${fileName}`);
     if (response.ok) {
       const text = await response.text();
       sourceFilesCache[fileName] = text;
       codeDisplay.textContent = text;
     } else {
-      codeDisplay.textContent = `// Unable to fetch /${fileName}`;
+      codeDisplay.textContent = `// Unable to fetch ./${fileName}`;
     }
   } catch {
     codeDisplay.textContent = `// Source file: ${fileName}`;
